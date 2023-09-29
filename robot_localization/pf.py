@@ -19,6 +19,8 @@ from occupancy_field import OccupancyField
 from helper_functions import TFHelper
 from rclpy.qos import qos_profile_sensor_data
 from angle_helpers import quaternion_from_euler
+from statistics import mean
+from angle_helpers import quaternion_from_euler
 
 class Particle(object):
     """ Represents a hypothesis (particle) of the robot's pose consisting of x,y and theta (yaw)
@@ -104,7 +106,7 @@ class ParticleFilter(Node):
         self.current_odom_xy_theta = []
         self.occupancy_field = OccupancyField(self)
         self.transform_helper = TFHelper(self)
-
+        self.std = 0.2
         # we are using a thread to work around single threaded execution bottleneck
         thread = Thread(target=self.loop_wrapper)
         thread.start()
@@ -183,10 +185,11 @@ class ParticleFilter(Node):
         """
         # first make sure that the particle weights are normalized
         self.normalize_particles()
-
-        # TODO: assign the latest pose into self.robot_pose as a geometry_msgs.Pose object
-        # just to get started we will fix the robot's pose to always be at the origin
+        
         self.robot_pose = Pose()
+        self.robot_pose.position.x = mean([particle.x for particle in self.particle_cloud])
+        self.robot_pose.position.y = mean([particle.y for particle in self.particle_cloud])
+        self.robot_pose.orientation = quaternion_from_euler(0, 0, mean([particle.theta for particle in self.particle_cloud]))
         if hasattr(self, 'odom_pose'):
             self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
                                                             self.odom_pose)
@@ -212,7 +215,11 @@ class ParticleFilter(Node):
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
-        # TODO: modify particles using delta
+        for particle in self.particle_cloud:
+            dx, dy, dtheta = delta
+            particle.x += dx * np.cos(particle.theta) - dy * np.sin(particle.theta)
+            particle.y += dx * np.sin(particle.theta) + dy * np.cos(particle.theta)
+            particle.theta += dtheta % (2*np.pi)
 
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
@@ -246,15 +253,18 @@ class ParticleFilter(Node):
         if xy_theta is None:
             xy_theta = self.transform_helper.convert_pose_to_xy_and_theta(self.odom_pose)
         self.particle_cloud = []
-        # TODO create particles
+        for _ in range(self.n_particles):
+            self.particle_cloud.append(Particle(xy_theta[0] + (np.random.randn() * self.std), xy_theta[1] + (np.random.randn() * self.std), 
+                                                xy_theta[2]  + (np.random.randn() * self.std), 1/self.n_particles))
 
         self.normalize_particles()
         self.update_robot_pose()
 
     def normalize_particles(self):
         """ Make sure the particle weights define a valid distribution (i.e. sum to 1.0) """
-        # TODO: implement this
-        pass
+        total = sum(particle.w for particle in self.particle_cloud)
+        for particle in self.particle_cloud:
+                particle.w = particle.w/total
 
     def publish_particles(self, timestamp):
         msg = ParticleCloud()
