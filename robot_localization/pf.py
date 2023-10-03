@@ -16,7 +16,7 @@ import math
 import time
 import numpy as np
 from occupancy_field import OccupancyField
-from helper_functions import TFHelper
+from helper_functions import TFHelper, draw_random_sample
 from rclpy.qos import qos_profile_sensor_data
 from angle_helpers import quaternion_from_euler
 from statistics import mean
@@ -74,8 +74,7 @@ class ParticleFilter(Node):
     def __init__(self):
         super().__init__('pf')
         self.base_frame = "base_footprint"   # the frame of the robot base
-        self.map_frame = "map"          # the name of the map coordinate frame
-        self.odom_frame = "odom"        # the name of the odometry coordinate frame
+        self.map_frame = "macodom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
         self.n_particles = 300          # the number of particles to use
@@ -189,7 +188,14 @@ class ParticleFilter(Node):
         self.robot_pose = Pose()
         self.robot_pose.position.x = mean([particle.x for particle in self.particle_cloud])
         self.robot_pose.position.y = mean([particle.y for particle in self.particle_cloud])
-        self.robot_pose.orientation = quaternion_from_euler(0, 0, mean([particle.theta for particle in self.particle_cloud]))
+        temp = quaternion_from_euler(0, 0, mean([particle.theta for particle in self.particle_cloud]))
+        orientationQuat = Quaternion()
+        orientationQuat.x  = temp[0]
+        orientationQuat.y  = temp[1]
+        orientationQuat.z  = temp[2]
+        orientationQuat.w  = temp[3]
+        self.robot_pose.orientation = orientationQuat
+
         if hasattr(self, 'odom_pose'):
             self.transform_helper.fix_map_to_odom_transform(self.robot_pose,
                                                             self.odom_pose)
@@ -229,7 +235,14 @@ class ParticleFilter(Node):
         """
         # make sure the distribution is normalized
         self.normalize_particles()
-        # TODO: fill out the rest of the implementation
+        weights = [p.w for p in self.particle_cloud]
+        rand_sample = draw_random_sample(self.particle_cloud, weights, self.n_particles)
+        self.particle_cloud = rand_sample
+
+        self.normalize_particles()
+        self.update_robot_pose()
+
+
 
     def update_particles_with_laser(self, r, theta):
         """ Updates the particle weights in response to the scan data
