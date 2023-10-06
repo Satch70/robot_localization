@@ -74,7 +74,8 @@ class ParticleFilter(Node):
     def __init__(self):
         super().__init__('pf')
         self.base_frame = "base_footprint"   # the frame of the robot base
-        self.map_frame = "macodom"        # the name of the odometry coordinate frame
+        self.map_frame = "map"          # the name of the map coordinate frame
+        self.odom_frame = "odom"        # the name of the odometry coordinate frame
         self.scan_topic = "scan"        # the topic where we will get laser scans from 
 
         self.n_particles = 300          # the number of particles to use
@@ -212,21 +213,21 @@ class ParticleFilter(Node):
         # compute the change in x,y,theta since our last update
         if self.current_odom_xy_theta:
             old_odom_xy_theta = self.current_odom_xy_theta
-            delta = (new_odom_xy_theta[0] - self.current_odom_xy_theta[0],
-                     new_odom_xy_theta[1] - self.current_odom_xy_theta[1],
-                     new_odom_xy_theta[2] - self.current_odom_xy_theta[2])
+            rt_matrix_new = np.array([[np.cos(new_odom_xy_theta[2]), -np.sin(new_odom_xy_theta[2]), new_odom_xy_theta[0]], [np.sin(new_odom_xy_theta[2]), np.cos(new_odom_xy_theta[2]), new_odom_xy_theta[1]], [0, 0, 1]])
+            rt_matrix_old = np.array([[np.cos(old_odom_xy_theta[2]), -np.sin(old_odom_xy_theta[2]), old_odom_xy_theta[0]], [np.sin(old_odom_xy_theta[2]), np.cos(old_odom_xy_theta[2]), old_odom_xy_theta[1]], [0, 0, 1]])
 
+            delta = np.matmul(np.linalg.inv(rt_matrix_old), rt_matrix_new)
             self.current_odom_xy_theta = new_odom_xy_theta
         else:
             self.current_odom_xy_theta = new_odom_xy_theta
             return
 
         for particle in self.particle_cloud:
-            dx, dy, dtheta = delta
-            particle.x += dx * np.cos(particle.theta) - dy * np.sin(particle.theta)
-            particle.y += dx * np.sin(particle.theta) + dy * np.cos(particle.theta)
-            particle.theta += dtheta % (2*np.pi)
-
+            rt_matrix = [[np.cos(particle.theta), -np.sin(particle.theta), particle.x], [np.sin(particle.theta), np.cos(particle.theta), particle.y], [0, 0, 1]]
+            temp = np.matmul(rt_matrix, delta)
+            particle.x = temp[0][2]
+            particle.y = temp[1][2]
+            particle.theta += new_odom_xy_theta[2] - old_odom_xy_theta[2]
     def resample_particles(self):
         """ Resample the particles according to the new particle weights.
             The weights stored with each particle should define the probability that a particular
@@ -237,7 +238,12 @@ class ParticleFilter(Node):
         self.normalize_particles()
         weights = [p.w for p in self.particle_cloud]
         rand_sample = draw_random_sample(self.particle_cloud, weights, self.n_particles)
+
         self.particle_cloud = rand_sample
+        for particle in self.particle_cloud:
+            particle.x += (np.random.randn() * 0.05)
+            particle.y += (np.random.randn() * 0.05)
+            particle.theta += (np.random.randn() * 0.02)
 
         self.normalize_particles()
         self.update_robot_pose()
@@ -249,8 +255,18 @@ class ParticleFilter(Node):
             r: the distance readings to obstacles
             theta: the angle relative to the robot frame for each corresponding reading 
         """
-        # TODO: implement this
-        pass
+        scanx = np.cos(theta)*r
+        scany = np.sin(theta) *r
+        for particle in self.particle_cloud:
+            total = 0
+            rt_matrix = [[np.cos(particle.theta), -np.sin(particle.theta), particle.x], [np.sin(particle.theta), np.cos(particle.theta), particle.y], [0, 0, 1]]
+            rt_scan = np.matmul(rt_matrix, np.vstack((scanx, scany, np.ones_like(scanx))))
+            for i in range(rt_scan.shape[1]):
+                x, y = rt_scan[0, i], rt_scan[1, i]                
+                total += self.occupancy_field.get_closest_obstacle_distance(x, y) < 0.1
+            if total > 5:
+                particle.w = 1
+        
 
     def update_initial_pose(self, msg):
         """ Callback function to handle re-initializing the particle filter based on a pose estimate.
