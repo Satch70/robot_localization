@@ -106,7 +106,9 @@ class ParticleFilter(Node):
         self.current_odom_xy_theta = []
         self.occupancy_field = OccupancyField(self)
         self.transform_helper = TFHelper(self)
-        self.std = 0.2
+        self.std = 0.4
+        self.tight_std = 0.02
+        self.tight_theta_std = 0.03
         # we are using a thread to work around single threaded execution bottleneck
         thread = Thread(target=self.loop_wrapper)
         thread.start()
@@ -241,9 +243,9 @@ class ParticleFilter(Node):
 
         self.particle_cloud = rand_sample
         for particle in self.particle_cloud:
-            particle.x += (np.random.randn() * 0.05)
-            particle.y += (np.random.randn() * 0.05)
-            particle.theta += (np.random.randn() * 0.02)
+            particle.x += (np.random.randn() * self.tight_std)
+            particle.y += (np.random.randn() * self.tight_std)
+            particle.theta += (np.random.randn() * self.tight_theta_std)
 
         self.normalize_particles()
         self.update_robot_pose()
@@ -264,8 +266,7 @@ class ParticleFilter(Node):
             for i in range(rt_scan.shape[1]):
                 x, y = rt_scan[0, i], rt_scan[1, i]                
                 total += self.occupancy_field.get_closest_obstacle_distance(x, y) < 0.1
-            if total > 5:
-                particle.w = 1
+            particle.w = total
         
 
     def update_initial_pose(self, msg):
