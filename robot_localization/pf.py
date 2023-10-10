@@ -106,7 +106,7 @@ class ParticleFilter(Node):
         self.current_odom_xy_theta = []
         self.occupancy_field = OccupancyField(self)
         self.transform_helper = TFHelper(self)
-        self.std = 0.4
+        self.std = 0.8
         self.tight_std = 0.02
         self.tight_theta_std = 0.03
         # we are using a thread to work around single threaded execution bottleneck
