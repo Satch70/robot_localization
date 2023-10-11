@@ -264,8 +264,11 @@ class ParticleFilter(Node):
             rt_matrix = [[np.cos(particle.theta), -np.sin(particle.theta), particle.x], [np.sin(particle.theta), np.cos(particle.theta), particle.y], [0, 0, 1]]
             rt_scan = np.matmul(rt_matrix, np.vstack((scanx, scany, np.ones_like(scanx))))
             for i in range(rt_scan.shape[1]):
-                x, y = rt_scan[0, i], rt_scan[1, i]                
-                total += self.occupancy_field.get_closest_obstacle_distance(x, y) < 0.1
+                x, y = rt_scan[0, i], rt_scan[1, i]
+                try:              
+                    total += self.occupancy_field.get_closest_obstacle_distance(x, y) < 0.1
+                except:
+                    particle.w = 0
             particle.w = total
         
 
