@@ -29,6 +29,7 @@ Putting the two together gives us a particle filter with a good accuracy. Below 
 ### MAC 1st Floor
 
 #### Take 1
+
 ![Alt Text](media/mac.gif)
 
 #### Take 2
@@ -38,13 +39,14 @@ Putting the two together gives us a particle filter with a good accuracy. Below 
 
 ### Lidar Scan Weight Update
 
-Initially for our Lidar scan, to weigh the particles, we used a box function with a strict occupancy field cutoff. Initially if there were 5 or more particles close enough to an actual obstacle, then the particle weight goes to 1 and otherwise it is 0. Regardless of the threshold, this box function would eliminate or keep too many particles creating an innacurate particle filter. Thus, 
+Initially for our Lidar scan, to weigh the particles, we used a box function with a strict occupancy field cutoff. Initially if there were 5 or more particles close enough to an actual obstacle, then the particle weight goes to 1 and otherwise it is 0. Regardless of the threshold, this box function would eliminate or keep too many particles creating an innacurate particle filter. Thus, we moved to a two step weight calculatinon. In the lidar scan function, we use the occupancy field calculation as way to total how many obstacle scans in terms of the particle are close enough to an actual obstacle in the real world, and set that as the weight. Then the normalization step, normalizes them all to 1, meaning that particles with the most close scan points to an obstacle has the highest weight. This creates a more dynamic and more accurate particle filter. 
 
 
 ### Resampling Randomization for Particles
-Another design decision 
+Another design decision we made was to prevent our particle from collapsing into one particle as time goes on by randomizing our particles in the resampling step. The resampling step resamples our distribution based on the updated weights. After recreating the particle filter, we apply a tight normal distribution around the particle to introduce variation that keeps the cloud from collapsing into 1 particle, improving accuracy of the filter in the long term. 
 
 ## Number of Particles
+We reduced the number of particles to 200 to allow the particles to stay closer to the robot when the filter is running. When the number is higher the particles significantly lag behind the robot model, causing a lot of the snapping of the map that we see in our recordings. To minimize this, while maintaining the accuracy of the filter, we reduced the number of particles to 200 to reduce how far behind the particles lag behind our robot. 
 
 ## Challenges
 
@@ -54,7 +56,9 @@ The biggest challenge we came across was applying the matrix transformations ont
 
 The best way to improve this particle filter would be to include more measurements in updating the weights of each particle. In its current state, the particle filter’s weights are determined based entirely on the lidar scan, which means that if the scan has increased error for any reason, the particle filter becomes highly inaccurate. 
 
-Another way to improve the particle fitler is to improve the weighting changes 
+Another way to improve the particle fitler is to improve the weighting changes to a more sophisticated calculation. We use a very rudimentary weight calculation, but there are more sophisticated methods of weighting the particles that could reduce the time it takes for the particle cloud to condense or improve the accuracy or efficiency of the particle filter.
+
+The efficiency of the particle filter is also another optimization I would make in the future. Although the O notation is relatively low, a majority of the functions operate in O(n) other than the lidar scan update at O(n*m) and the resample function, there are still inefficiencies in our particle filter that most likely slow down our implementation significantly. Most likely the resampling function and the continous calculations we do are the biggest bottlenecks of our filter, and if we had more time we would verify that and work on improving the efficiency. 
 
 
 ## Lessons Learned
