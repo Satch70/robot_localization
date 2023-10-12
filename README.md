@@ -4,6 +4,9 @@
 Particle filters are an important method of localization that is used as a mainstream way to confidently keep track of where a robot is within an environment. The goal for this project was to implement our own particle filter algorithm to localize a robot within a premade map of the Academic Center at Olin. Utilizing the ROS platform and a neato’s odometry readings and lidar scans, we were able to successfully track the robots position using our particle filter.
 
 ## Implementation
+To initialize our particles, we use a a wide normal distribution to distribute our particles around the estimated initial location of the robot. This initialization needs to be a broad distribution of particles because we do not know how accurate our initial measurement is. 
+
+![Alt Text](media/init_particles.png)
 
 There are three major components to our particle filter, being able to update each particle based on the change in odometry, the lidar scan from the robot and resampling the particles. 
 
