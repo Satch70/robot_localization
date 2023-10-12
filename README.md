@@ -8,12 +8,16 @@ To initialize our particles, we use a a wide normal distribution to distribute o
 
 ![Alt Text](media/init_particles.png)
 
+Figure 1.1
+
 There are three major components to our particle filter, being able to update each particle based on the change in odometry, the lidar scan from the robot and resampling the particles. 
 
 ### Odometry Update
 After initializing the particle cloud, the first major problem is to get the particles to move along with the robot. In order to achieve this, we can use the odometry measurements from the robot to update each particle. Given the old and new odometry, we are able to use matrix operations to get the change or delta in terms of a rotation translation matrix. We can then use those values to update each particle and have them move along with the particle.
 
 ![Alt Text](media/odom.gif)
+
+Figure 1.2
 
 It is clear that particles are moving in a somewhat similar way as the robot, but are moving farther and farther apart as time goes on, and the localization and mapping seem to be failing. In order, to solve this problem, we need to use another measurement to reweight and resample the particles. 
 
@@ -25,6 +29,8 @@ Once the weights are updated, we can resample the particles to get rid of partic
 
 ![Alt Text](media/lidar_scan.gif)
 
+Figure 1.3
+
 This is the implementation without the odometry update. It is clear that the particles are converging on a location, but because the particles are not moving with the robot it is still converging on the wrong location. 
 
 ## Final Product
@@ -35,18 +41,41 @@ Putting the two together gives us a particle filter with a good accuracy. Below 
 
 ![Alt Text](media/mac.gif)
 
+Figure 1.4
+
 #### Take 2
 ![Alt Text](media/take2.gif)
+
+Figure 1.5
 
 ## Major Design Decisions
 
 ### Lidar Scan Weight Update
 
-Initially for our Lidar scan, to weigh the particles, we used a box function with a strict occupancy field cutoff. Initially if there were 5 or more particles close enough to an actual obstacle, then the particle weight goes to 1 and otherwise it is 0. Regardless of the threshold, this box function would eliminate or keep too many particles creating an innacurate particle filter. Thus, we moved to a two step weight calculatinon. In the lidar scan function, we use the occupancy field calculation as way to total how many obstacle scans in terms of the particle are close enough to an actual obstacle in the real world, and set that as the weight. Then the normalization step, normalizes them all to 1, meaning that particles with the most close scan points to an obstacle has the highest weight. This creates a more dynamic and more accurate particle filter. 
+Initially for our Lidar scan, to weigh the particles, we used a box function with a strict occupancy field cutoff. Initially if there were 5 or more particles close enough to an actual obstacle, then the particle weight goes to 1 and otherwise it is 0. Regardless of the threshold, this box function would eliminate or keep too many particles creating an innacurate particle filter.
 
+Here is a visualization of our box filter.
+
+![Alt Text](media/box_function.png)
+
+Figure 2.1
+
+Thus, we moved to a two step weight calculation. In the lidar scan function, we use the occupancy field calculation as a way to total how many obstacle scans in terms of the particle are close enough to an actual obstacle in the real world, and set that as the weight. Then the normalization step, normalizes them all to 1, meaning that particles with the most close scan points to an obstacle has the highest weight. This creates a more dynamic and more accurate particle filter. 
+
+Here we can visualize the distribution of weights by using a PDF in figure 2.2. Claculating the probability that the particle is the actual location of the robot. The less the projected scan of a particle differs from the regular scan (the closer the difference is to 0) the higher that particle is weighted.
+
+![Alt Text](media/normalpdf.png)
+
+Figure 2.2
 
 ### Resampling Randomization for Particles
 Another design decision we made was to prevent our particle from collapsing into one particle as time goes on by randomizing our particles in the resampling step. The resampling step resamples our distribution based on the updated weights. After recreating the particle filter, we apply a tight normal distribution around the particle to introduce variation that keeps the cloud from collapsing into 1 particle, improving accuracy of the filter in the long term. 
+
+The model for this in figure 2.3 is also very similar to the model in figure 2.2 for weighing the particles. 
+
+![Alt Text](media/norm_disp.png)
+
+FIgure 2.3
 
 ## Number of Particles
 We reduced the number of particles to 200 to allow the particles to stay closer to the robot when the filter is running. When the number is higher the particles significantly lag behind the robot model, causing a lot of the snapping of the map that we see in our recordings. To minimize this, while maintaining the accuracy of the filter, we reduced the number of particles to 200 to reduce how far behind the particles lag behind our robot. 

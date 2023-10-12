@@ -185,7 +185,7 @@ class ParticleFilter(Node):
         self.robot_pose = Pose()
         self.robot_pose.position.x = mean([particle.x for particle in self.particle_cloud])
         self.robot_pose.position.y = mean([particle.y for particle in self.particle_cloud])
-        #Use a the quaternion_from_euler helper function to calculate the orientation for the pose
+        #Use the quaternion_from_euler helper function to calculate the orientation for the pose
         temp = quaternion_from_euler(0, 0, mean([particle.theta for particle in self.particle_cloud]))
         orientationQuat = Quaternion()
         orientationQuat.x  = temp[0]
